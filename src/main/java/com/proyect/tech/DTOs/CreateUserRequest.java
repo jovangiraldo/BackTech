@@ -1,0 +1,5 @@
+package com.proyect.tech.DTOs;
+
+public class CreateUserRequest {
+    
+}
