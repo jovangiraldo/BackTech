@@ -1,10 +1,23 @@
 package com.proyect.tech.Service;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
+import com.proyect.tech.Model.User;
+import java.util.Optional;
 
-@RestController
-@RequestMapping("/users")
-public class UserService {
-    
+public interface UserService {
+
+	Iterable<User> findAll();
+
+	User findByIdOrThrow(Long id);
+
+	User save(User user);
+
+	void deleteById(Long id);
+
+	boolean existsById(Long id);
+
+	Optional<User> findByIdCard(String idCard);
+
+	boolean existsByIdCard(String idCard);
+
+	Optional<User> findByAuthEmail(String email);
 }
