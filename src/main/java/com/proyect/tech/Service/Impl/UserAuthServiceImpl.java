@@ -5,6 +5,7 @@ import com.proyect.tech.Repository.UserAuthRepository;
 import com.proyect.tech.Service.UserAuthService;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserAuthServiceImpl implements UserAuthService {
 
     private final UserAuthRepository userAuthRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserAuthServiceImpl(UserAuthRepository userAuthRepository) {
+    public UserAuthServiceImpl(UserAuthRepository userAuthRepository, PasswordEncoder passwordEncoder) {
         this.userAuthRepository = userAuthRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -33,6 +36,10 @@ public class UserAuthServiceImpl implements UserAuthService {
 
     @Override
     public UserAuth save(UserAuth userAuth) {
+        String passwordHash = userAuth.getPasswordHash();
+        if (passwordHash != null && !passwordHash.isBlank() && !isBcryptHash(passwordHash)) {
+            userAuth.setPasswordHash(passwordEncoder.encode(passwordHash));
+        }
         return userAuthRepository.save(userAuth);
     }
 
@@ -66,5 +73,9 @@ public class UserAuthServiceImpl implements UserAuthService {
     @Transactional(readOnly = true)
     public Optional<UserAuth> findByUserId(Long userId) {
         return userAuthRepository.findByUserId(userId);
+    }
+
+    private boolean isBcryptHash(String value) {
+        return value.startsWith("$2a$") || value.startsWith("$2b$") || value.startsWith("$2y$");
     }
 }

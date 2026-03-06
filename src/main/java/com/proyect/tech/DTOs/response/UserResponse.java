@@ -3,6 +3,8 @@ package com.proyect.tech.DTOs.response;
 import com.proyect.tech.Model.User;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public record UserResponse(
 	Long id,
@@ -13,7 +15,8 @@ public record UserResponse(
 	LocalDateTime birthDate,
 	Long authId,
 	List<Long> contactIds,
-	List<Long> petIds
+	List<Long> petIds,
+	Set<String> roles
 ) {
 
     public static UserResponse fromEntity(User user) {
@@ -27,6 +30,10 @@ public record UserResponse(
 		? List.of()
 		: user.getPets().stream().map(p -> p.getId()).toList();
 
+	Set<String> roles = user.getRoles() == null
+		? Set.of()
+		: user.getRoles().stream().map(r -> r.getName()).collect(Collectors.toSet());
+
 	return new UserResponse(
 		user.getId(),
 		user.getName(),
@@ -36,7 +43,8 @@ public record UserResponse(
 		user.getBirthDate(),
 		authId,
 		contactIds,
-		petIds
+		petIds,
+		roles
 	);
     }
 }

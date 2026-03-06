@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -100,6 +101,19 @@ public class GlobalExceptionHandler {
 	return buildResponse(
 		HttpStatus.CONFLICT,
 		"Data integrity violation",
+		null,
+		request
+	);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleBadCredentials(
+	    BadCredentialsException ex,
+	    WebRequest request
+    ) {
+	return buildResponse(
+		HttpStatus.UNAUTHORIZED,
+		"Invalid credentials",
 		null,
 		request
 	);
