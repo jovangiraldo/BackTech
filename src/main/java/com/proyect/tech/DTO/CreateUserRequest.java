@@ -1,4 +1,4 @@
-package com.proyect.tech.DTOs;
+package com.proyect.tech.DTO;
 
 public class CreateUserRequest {
     
