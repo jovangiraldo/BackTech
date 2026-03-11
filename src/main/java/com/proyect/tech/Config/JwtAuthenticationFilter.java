@@ -1,11 +1,12 @@
 package com.proyect.tech.Config;
-
 import com.proyect.tech.Service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;                          // 👈
+import org.springframework.security.core.authority.SimpleGrantedAuthority;          // 👈
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -25,6 +26,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.jwtService = jwtService;
     }
 
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+    
+       
+        return path.equals("/api/users/login") || 
+               path.equals("/api/clients/register") ||
+               (path.startsWith("/api/pets/by-identifier/") && method.equals("GET"));
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -32,7 +45,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // Si no viene el header o no es Bearer, salimos del filtro
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -40,7 +52,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String jwt = authHeader.substring(7);
 
-        // Validación básica de longitud
         if (jwt.isBlank() || jwt.length() < 10) {
             filterChain.doFilter(request, response);
             return;
@@ -49,15 +60,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             final String userEmail = jwtService.extractEmail(jwt);
 
-            // Solo autentica si hay email y aún no hay autenticación activa en el contexto
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
                 if (jwtService.isTokenValid(jwt, userEmail)) {
 
-                    // ✅ CORRECCIÓN CLAVE: construir UserDetails y establecer autenticación
+                    // 👈 extrae el rol del token y conviértelo en authority
+                    String role = jwtService.extractRole(jwt);
+                    List<GrantedAuthority> authorities = List.of(
+                        new SimpleGrantedAuthority("ROLE_" + role)  // ej: ROLE_ADMINISTRADOR
+                    );
+
                     UserDetails userDetails = User.withUsername(userEmail)
-                            .password("") // No necesitamos la contraseña aquí
-                            .authorities(new ArrayList<>()) // Agrega roles si los tienes: e.g. "ROLE_USER"
+                            .password("")
+                            .authorities(authorities)  // 👈 con roles, no lista vacía
                             .build();
 
                     UsernamePasswordAuthenticationToken authToken =
@@ -67,17 +81,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     userDetails.getAuthorities()
                             );
 
-                    // ✅ Adjunta detalles del request (IP, session, etc.)
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                    // ✅ Establece la autenticación en el contexto de seguridad
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
-            System.err.println("Token inválido: " + e.getMessage());
-            // Limpia el contexto si algo falla para evitar estados inconsistentes
-            SecurityContextHolder.clearContext();
+         
+            System.err.println("Token no válido o expirado: " + e.getMessage());            
+        
+            SecurityContextHolder.clearContext();           
+           
+            filterChain.doFilter(request, response);
+            return; 
         }
 
         filterChain.doFilter(request, response);

@@ -1,9 +1,12 @@
 package com.proyect.tech.Config;
+
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -36,21 +39,48 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                // Es vital poner la sesión en STATELESS para que el servidor no guarde cookies
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        // ÚNICAMENTE estas rutas son públicas
-                        .requestMatchers("/api/users/login").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        // Si quieres que el registro sea público, mantén esta línea:
-                        // .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-
-                        // CUALQUIER otra ruta, incluyendo /api/users, requerirá autenticación
-                        .anyRequest().authenticated())
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-                // AÑADIMOS EL FILTRO ANTES DE LA AUTENTICACIÓN
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth                   
+                        .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/clients").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/pets/by-identifier/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,   "/api/pets").permitAll()
+                        .requestMatchers(HttpMethod.GET,    "/api/pets/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,   "/api/pets/**").permitAll()
+                        .requestMatchers(HttpMethod.PUT,    "/api/pets/**").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/pets/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()  
+                    
+                        .requestMatchers(HttpMethod.GET,    "/api/clients/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,   "/api/clients/**").permitAll()
+                        .requestMatchers(HttpMethod.PUT,    "/api/clients/**").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/clients/**").permitAll()
+                    
+                      
+                    
+                        .requestMatchers(HttpMethod.GET,    "/api/users/**").hasAnyRole("ADMINISTRADOR", "ASISTENTE")
+                        .requestMatchers(HttpMethod.POST,   "/api/users/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.PUT,    "/api/users/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMINISTRADOR")
+                    
+                        .anyRequest().authenticated()
+                    )
+                    // 👇 AQUÍ SÍ VA, al mismo nivel que .authorizeHttpRequests()
+                    .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            System.err.println("🔴 401 - URI: " + request.getRequestURI() + " | " + authException.getMessage());
+                            response.sendError(401, authException.getMessage());
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            System.err.println("🔴 403 - URI: " + request.getRequestURI() + " | " + accessDeniedException.getMessage());
+                            response.sendError(403, accessDeniedException.getMessage());
+                        })
+                    )
+                    .formLogin(form -> form.disable())
+                    .httpBasic(basic -> basic.disable())
+                    .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -21,16 +21,19 @@ public class User {
     @Column(nullable =true,unique = false)
     private String phone;
     @Column(nullable = false)
-    private String password;
-    @Column(nullable = false)
+    private String password;   
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private  Role role;
     @CreationTimestamp
     @Column (name = "created_at", nullable = false,updatable = false)
     private LocalDateTime createdAt;
     @UpdateTimestamp
-    @Column(name = "updated_at")
+    @Column(name = "updated_at")    
     private LocalDateTime updatedAt;
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private Client client; // solo existe si role == CLIENT
+
     public User(){}
        public Long getId() {
         return id;

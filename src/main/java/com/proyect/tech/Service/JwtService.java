@@ -28,6 +28,9 @@ public class JwtService {
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
 
     // 2. EXTRAER EL EMAIL DEL TOKEN (Para validar quién es)
     public String extractEmail(String token) {

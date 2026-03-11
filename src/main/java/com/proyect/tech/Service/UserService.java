@@ -1,78 +1,93 @@
 package com.proyect.tech.Service;
 
+import com.proyect.tech.Model.Role;
 import com.proyect.tech.Model.User;
+import com.proyect.tech.DTO.CreateUserDTO;
 import com.proyect.tech.DTO.LoginRequest;
 import com.proyect.tech.DTO.LoginResponse;
 import com.proyect.tech.DTO.UserDTO;
-
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.proyect.tech.Repository.UserRepository;
 import com.proyect.tech.Exception.ResourceNotFoundException;
 
 @Service
 public class UserService {
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public UserService(UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            JwtService jwtService) {
-        this.userRepository = userRepository;
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService) {
+        this.userRepository  = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-    }  
-
-    public User crearUsuario(User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+        this.jwtService      = jwtService;
     }
 
-    public List<User> findAll() {
-        return userRepository.findAll();
+    public UserDTO crearUsuario(CreateUserDTO dto) {
+        // Evita crear CLIENTEs por esta ruta
+        if (dto.getRole() == Role.CLIENTE) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Use /api/clients/register para registrar clientes"
+            );
+        }
+        User user = new User();
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setRole(dto.getRole());
+        return new UserDTO(userRepository.save(user));
     }
 
-    public Optional<User> findById(Long id) {
-        return userRepository.findById(id);
+    public List<UserDTO> findAll() {
+        return userRepository.findAll()
+                .stream()
+                .map(UserDTO::new)
+                .toList();
     }
 
-    public User update(long id, User userDetails) {
+    public Optional<UserDTO> findById(Long id) {
+        return userRepository.findById(id).map(UserDTO::new);
+    }
+
+    public UserDTO update(Long id, CreateUserDTO dto) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        if (userDetails.getName() != null &&
-                !userDetails.getName().trim().isEmpty()) {
-            user.setName(userDetails.getName());
+                .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
-        if (userDetails.getEmail() != null &&
-                !userDetails.getEmail().trim().isEmpty()) {
-            user.setEmail(userDetails.getEmail());
+        if (dto.getRole() != null) {
+            user.setRole(dto.getRole());
         }
-        if (userDetails.getPassword() != null &&
-                !userDetails.getPassword().trim().isEmpty()) {
-            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
-        }
-
-        if (userDetails.getRole() != null)
-            user.setRole(userDetails.getRole());
-
-        return userRepository.save(user);
+        return new UserDTO(userRepository.save(user));
     }
-    
+
+    public void delete(Long id) {
+        userRepository.deleteById(id);
+    }
 
     public LoginResponse login(LoginRequest request) {
-       
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-       
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new ResourceNotFoundException("Contraseña incorrecta");
-        }   
-        String token = jwtService.generateToken(user);
-        UserDTO userDTO = new UserDTO(user);
+                .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
 
-        return new LoginResponse(token, userDTO);
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
+        }
+
+        String token = jwtService.generateToken(user);
+        return new LoginResponse(token, new UserDTO(user));
     }
 }
